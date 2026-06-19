@@ -1,0 +1,13 @@
+node_modules/
+# secrets — local only, never committed
+.env.keys
+.env
+# playwright + provisioning artifacts
+test-results/
+playwright-report/
+.report/
+.results/
+e2e/.auth/
+e2e/.manual-auth/
+*.log
+.DS_Store

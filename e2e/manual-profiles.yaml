@@ -1,0 +1,58 @@
+# manual-profiles.yaml — personas for MANUAL QA logins (scripts/qa-manual-user.mjs)
+# Separate from test-profiles.yaml so manual users are never created by the E2E suite.
+# Email pattern: vb-hopo+e2e-manual-<role>-manual-<id>@buckden.io
+#
+# Hopo's roles (Owner > Admin > Member "Can Edit" > Viewer "Can View") are
+# PER-DWELLING membership roles, not Cognito groups. So provisioning creates the
+# users; the role is assigned in-app via the invite flow:
+#   1. log in as `owner`, create a dwelling
+#   2. on the dwelling's Members page, invite the admin / member / viewer users
+#      (emails printed by qa:admin / qa:member / qa:viewer) with that role
+#   3. accept the invite as that user → they now hold the role on that dwelling
+# (That invite + accept is itself the RBAC test — see the hopo runbook.)
+version: 1
+venture: vb-hopo
+
+profiles:
+  # Platform super-admin — the /admin console. This is a Cognito group and a
+  # SEPARATE axis from the per-dwelling roles below (a super-admin is not
+  # automatically an owner/admin of any dwelling).
+  superadmin:
+    suffix: manual-superadmin
+    groups:
+      - super-admin
+    token_file: manual-superadmin-token.json
+
+  # Owner — creates & owns dwellings, can invite and assign every role.
+  # Seeded as pro so sharing/limits don't block setup.
+  owner:
+    suffix: manual-owner
+    token_file: manual-owner-token.json
+    dynamo_seed:
+      - table: $DYNAMODB_TABLE
+        pk: 'USER#{userId}'
+        sk: 'SUBSCRIPTION'
+        attributes:
+          entityType: 'SUBSCRIPTION'
+          planName: 'pro'
+          planId: 'e2e-pro'
+          status: 'active'
+          tier: 'pro'
+          currentPeriodStart: '2026-01-01T00:00:00Z'
+          currentPeriodEnd: '2099-12-31T23:59:59Z'
+          cancelAtPeriodEnd: false
+
+  # Admin — full management of a dwelling EXCEPT owner-only actions.
+  admin:
+    suffix: manual-admin
+    token_file: manual-admin-token.json
+
+  # Member ("Can Edit") — can edit content, not manage members/settings.
+  member:
+    suffix: manual-member
+    token_file: manual-member-token.json
+
+  # Viewer ("Can View") — read-only access to a shared dwelling.
+  viewer:
+    suffix: manual-viewer
+    token_file: manual-viewer-token.json

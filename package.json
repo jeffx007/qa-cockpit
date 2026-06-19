@@ -1,0 +1,30 @@
+{
+  "name": "manual-qa",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Manual QA tooling extracted from vb-hopo — on-demand role logins (qa:*) + the manual-runbook Playwright specs. Snapshot; see README.",
+  "scripts": {
+    "env": "DOTENV_PRIVATE_KEY=$(security find-generic-password -s vb_dotenvx_password -w) dotenvx run --",
+    "qa:superadmin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role superadmin --api",
+    "qa:owner": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role owner --api",
+    "qa:admin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role admin --api",
+    "qa:member": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role member --api",
+    "qa:viewer": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role viewer --api",
+    "qa:roles": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --api",
+    "qa:code": "npm run env -- node scripts/qa-manual-code.mjs",
+    "qa:clean": "npm run env -- node scripts/qa-manual-user.mjs --cleanup --api",
+    "qa:check-env": "npm run env -- node -e \"console.log('E2E_API_KEY:', process.env.E2E_API_KEY?'set ✓':'MISSING'); console.log('API_URL:', process.env.API_URL||process.env.AUTH_URL||process.env.VB_ACCOUNT_E2E_URL||'MISSING')\"",
+    "test:manual": "DOTENV_PRIVATE_KEY=$(security find-generic-password -s vb_dotenvx_password -w 2>/dev/null) E2E_TARGET=dev E2E_BASE_URL=https://dev.hopo.io dotenvx run -- sh -c 'npx e2e-provision && playwright test manual-runbook --workers=1; status=$?; npx e2e-cleanup; exit $status'",
+    "test:manual:watch": "DOTENV_PRIVATE_KEY=$(security find-generic-password -s vb_dotenvx_password -w 2>/dev/null) E2E_TARGET=dev E2E_BASE_URL=https://dev.hopo.io dotenvx run -- sh -c 'npx e2e-provision && playwright test manual-runbook --headed --workers=1; status=$?; npx e2e-cleanup; exit $status'"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@axe-core/playwright": "^4.11.3",
+    "@buckden/auth-client": "^0.13.3",
+    "@dotenvx/dotenvx": "^1.52.0",
+    "@playwright/test": "^1.61.0",
+    "js-yaml": "^4.1.0"
+  }
+}
