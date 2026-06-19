@@ -7,6 +7,52 @@ Self-contained, **local** QA engine extracted from `vb-hopo` — run your manual
 | **On-demand role logins** (human QA) | `scripts/qa-manual-user.mjs`, `scripts/qa-manual-code.mjs`, `e2e/manual-profiles.yaml` | Provisions test users via the vb-account E2E helper API, prints creds, fetches OTP, can open a logged-in browser |
 | **Manual runbook** (automated specs) | `e2e/__tests__/manual-runbook*.spec.ts` + the copied `e2e/fixtures/`, `e2e/global-*.ts`, `e2e/helpers/`, `playwright.config.ts` | Runnable here — the vb-hopo e2e harness was copied in so the specs resolve standalone |
 
+## Cross-venture QA cockpit (delegating)
+
+This folder doubles as a thin **cockpit** for driving any Buckden venture's *own*
+e2e-kit drive harness. The harness is venture-**coupled** (e.g. `vb-hopo/e2e-kit/config.ts`
+reads the live Vue router + `shared/access-map.ts` + `@buckden/e2e`), so it must run
+**inside the venture** — the cockpit only `cd`s in and invokes that venture's `qa:*`
+scripts. **No app-coupled code is copied here.** Secrets stay in the venture (loaded from
+its encrypted `.env` via dotenvx + macOS Keychain); the cockpit only forwards `VENTURE`,
+`ROLE`, `START`, and `E2E_BASE_URL`.
+
+### Inputs (env vars — all optional, with defaults)
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `VENTURE` | `vb-hopo` | venture folder under `../ventures/` |
+| `ROLE` | `owner` | `owner` \| `admin` \| `member` \| `viewer` \| `super-admin` \| `manager` \| `support-agent` |
+| `START` | `/home` | landing path after auth |
+| `E2E_BASE_URL` | `https://dev.hopo.io` | app URL to drive |
+
+### Cockpit scripts (delegating wrappers)
+
+| Script | Delegates to |
+|--------|--------------|
+| `npm run drive` | `cd ../ventures/$VENTURE && … npm run qa:drive` — paused live session as `ROLE` |
+| `npm run ui` | the venture's `qa:ui` (Playwright UI Mode, full kit suite) |
+| `npm run codegen` | the venture's `qa:codegen` against `E2E_BASE_URL` |
+| `npm run report` | the venture's `qa:report` |
+| `npm run hopo:drive` | `VENTURE=vb-hopo npm run drive` (shortcut) |
+| `npm run hopo:ui` | `VENTURE=vb-hopo npm run ui` (shortcut) |
+
+```bash
+ROLE=viewer npm run hopo:drive            # paused live viewer session in vb-hopo
+VENTURE=vb-hopo ROLE=admin npm run drive  # generic form, any venture
+npm run hopo:ui                           # Playwright UI Mode (full kit suite)
+E2E_BASE_URL=https://dev.hopo.io npm run codegen
+npm run report
+```
+
+**AWS:** `owner` and the system roles (`super-admin`/`manager`/`support-agent`) run with
+the venture's `.env` alone. `admin`/`member`/`viewer` additionally need **AWS credentials**
+(Pro-tier seeding so the owner can invite them into a group at that role).
+
+> The `qa:*` scripts below are a **separate**, self-contained manual-LOGIN tool (provisions
+> a user + prints creds / opens a logged-in browser); the cockpit scripts above are the
+> delegating drive harness. They don't overlap.
+
 ## Setup (one-time)
 ```bash
 npm install

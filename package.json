@@ -6,6 +6,12 @@
   "description": "Manual QA tooling extracted from vb-hopo — on-demand role logins (qa:*) + the manual-runbook Playwright specs. Snapshot; see README.",
   "scripts": {
     "env": "DOTENV_PRIVATE_KEY=$(security find-generic-password -s vb_dotenvx_password -w) dotenvx run --",
+    "drive": "cd ../ventures/${VENTURE:-vb-hopo} && ROLE=${ROLE:-owner} START=${START:-/home} E2E_BASE_URL=${E2E_BASE_URL:-https://dev.hopo.io} npm run qa:drive",
+    "ui": "cd ../ventures/${VENTURE:-vb-hopo} && E2E_BASE_URL=${E2E_BASE_URL:-https://dev.hopo.io} npm run qa:ui",
+    "codegen": "cd ../ventures/${VENTURE:-vb-hopo} && E2E_BASE_URL=${E2E_BASE_URL:-https://dev.hopo.io} npm run qa:codegen",
+    "report": "cd ../ventures/${VENTURE:-vb-hopo} && npm run qa:report",
+    "hopo:drive": "VENTURE=vb-hopo npm run drive",
+    "hopo:ui": "VENTURE=vb-hopo npm run ui",
     "qa:superadmin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role superadmin --api",
     "qa:owner": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role owner --api",
     "qa:admin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role admin --api",
