@@ -37,6 +37,12 @@ its encrypted `.env` via dotenvx + macOS Keychain); the cockpit only forwards `V
 | `npm run hopo:drive` | `VENTURE=vb-hopo npm run drive` (shortcut) |
 | `npm run hopo:ui` | `VENTURE=vb-hopo npm run ui` (shortcut) |
 | `npm run hopo:sync` | `cd ../ventures/vb-hopo && npm install` (resync the venture's deps) |
+| `npm run hopo:setup` | one-time: venture `npm install` **+ `npx playwright install`** (all browsers — removes cross-browser false-fails) |
+| `npm run hopo:test` | **headless kit run + triage** — accuracy-safe defaults (`--project=desktop --workers=2`) |
+| `npm run hopo:smoke` | as `hopo:test` but `--grep @smoke` (fast, fewest provisions → least throttle) |
+| `npm run triage` | classify the last run's failures (real vs known false-positive) |
+
+Tune a run with env vars: `VENTURE`, `PROJECT` (default `desktop`), `WORKERS` (default `2`), `GREP`, `E2E_BASE_URL`.
 
 The kit suite that `qa:ui` runs (from `@buckden/e2e`, config-driven per venture) currently covers:
 **session · navigation · rbac · subscription · boundary · accessibility · isolation**.
@@ -61,6 +67,34 @@ the venture's `.env` alone. `admin`/`member`/`viewer` additionally need **AWS cr
 > The `qa:*` scripts below are a **separate**, self-contained manual-LOGIN tool (provisions
 > a user + prints creds / opens a logged-in browser); the cockpit scripts above are the
 > delegating drive harness. They don't overlap.
+
+### Accuracy — triage (real bugs vs. false positives)
+
+A raw kit run's headline number is **not** the bug count. Across our dev runs, a
+`420 failed` / `27 failed` result triaged to **0 real bugs** — every failure was a
+known false-positive:
+
+| Source | Type | Fix lives in |
+|--------|------|--------------|
+| firefox/webkit/mobile-safari not installed | environment | `hopo:setup`, or `--project=desktop` |
+| CloudFront 403 (provisioning rate-limit under load) | infra | lower `WORKERS` / batch; proper fix in kit provisioner |
+| isolation member-mgmt needs a seeded target member | venture test bug | vb-hopo `e2e-kit/config.ts` *(raise an issue)* |
+| `/home` readiness testId (`dashboard-stats`) gated on `dwellings>0` | venture test bug | vb-hopo `e2e-kit/config.ts:208` *(raise an issue)* |
+
+`npm run hopo:test` runs the kit headless **and** triages automatically; `npm run triage`
+re-classifies the last run (`.results/last-run.log`) or any log you pass it:
+
+```bash
+npm run hopo:setup            # one-time: install all browsers in the venture
+npm run hopo:smoke            # quick, trustworthy signal (desktop @smoke) + triage
+npm run hopo:test             # full desktop kit run + triage
+node scripts/triage.mjs <log> # triage an existing Playwright list-reporter log
+```
+
+Triage exits non-zero only when a **REAL** (unexplained) failure remains, so it's
+CI-usable. The known false-positive patterns live in **`known-issues.json`** — venture
+test bugs there should each be tracked as an issue in that venture's repo, and removed
+from the file once fixed (so the failure starts counting as real again).
 
 ## Setup (one-time)
 ```bash

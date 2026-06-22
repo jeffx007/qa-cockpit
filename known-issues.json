@@ -1,0 +1,30 @@
+{
+  "_comment": "Patterns the triage tool uses to classify QA failures as KNOWN false-positives, so a run's headline number reflects REAL bugs only. 'infra' rules apply to any venture (environment / rate-limiting). Per-venture keys (e.g. 'vb-hopo') hold test-harness bugs that live in THAT venture's e2e-kit — each should be tracked as an issue in the venture repo. Remove a rule once its venture fix lands so the failure starts counting as REAL again.",
+  "infra": [
+    {
+      "id": "browser-not-installed",
+      "match": "Executable doesn't exist|browserType.launch",
+      "matchProject": "firefox|webkit|mobile-safari",
+      "reason": "Browser project not installed — run `npm run hopo:setup`, or scope to --project=desktop"
+    },
+    {
+      "id": "cloudfront-throttle",
+      "match": "403|Request blocked|cloudfront",
+      "reason": "vb-account E2E API rate-limited (CloudFront WAF) under a provisioning burst — lower workers / batch the run"
+    }
+  ],
+  "vb-hopo": [
+    {
+      "id": "isolation-target-member",
+      "match": "requires a target member",
+      "reason": "Isolation member-mgmt BOLA cases error in setup — no target member is seeded (test-harness gap, not a product bug)",
+      "fix": "vb-hopo e2e-kit/config.ts — raise issue"
+    },
+    {
+      "id": "home-readiness-selector",
+      "match": "dashboard-stats",
+      "reason": "/home readiness testId is gated on dwellings>0 (HomePage.vue v-if) — not an always-present marker, so a dwelling-less user times out",
+      "fix": "vb-hopo e2e-kit/config.ts:208 — raise issue"
+    }
+  ]
+}
