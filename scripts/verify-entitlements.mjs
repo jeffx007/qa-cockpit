@@ -84,6 +84,69 @@ const GATES = [
   },
 ]
 
+// Quota gates: numeric limits. Fill to the FREE limit (allowed), then the next
+// create must be rejected (LIMIT_EXCEEDED / limitName=<quota>); PRO raises it.
+// Only fast quotas are wired — e.g. maxItems(50) would need 51 creates + a room,
+// so it's left as an extensible entry rather than exercised on every run.
+const QUOTAS = [
+  {
+    quota: 'maxDwellings',
+    op: 'createDwelling',
+    query: CREATE_DWELLING,
+    makeVars: (i) => ({ input: { name: `Quota House ${i}`, type: 'HOUSE' } }),
+    idOf: (r) => r?.data?.createDwelling?.id,
+    freeLimit: 1,
+  },
+]
+
+async function verifyQuota(spec) {
+  const v = {
+    gate: spec.quota,
+    op: `${spec.op} beyond ${spec.freeLimit}`,
+    freeRejected: null,
+    proAllowed: null,
+    pass: false,
+    notes: [],
+  }
+  const email = `e2e+verify-${spec.quota}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@e2e.buckden.io`
+  const password = generateEphemeralPassword()
+  let provisioned = false
+  try {
+    await client.createUser({ email, password })
+    provisioned = true
+    const { idToken } = await client.getAuthToken({ email, password })
+
+    // fill exactly to the free limit — these must all succeed
+    for (let i = 1; i <= spec.freeLimit; i++) {
+      const r = await gql(spec.query, spec.makeVars(i), { idToken })
+      if (!spec.idOf(r)) {
+        v.notes.push(`setup: create #${i} (within limit) failed: ${JSON.stringify(r.errors || r).slice(0, 160)}`)
+        throw new Error('setup-failed')
+      }
+    }
+    // the next create must be rejected for FREE
+    const over = await gql(spec.query, spec.makeVars(spec.freeLimit + 1), { idToken })
+    v.freeRejected = isLimit(over, spec.quota)
+    if (!v.freeRejected)
+      v.notes.push(`FREE not rejected — server allowed ${spec.op} beyond ${spec.freeLimit}: ${JSON.stringify(over).slice(0, 160)}`)
+
+    // PRO → the next create must be allowed
+    await seedSub(email, 'pro')
+    const pro = await gql(spec.query, spec.makeVars(spec.freeLimit + 1), { idToken })
+    v.proAllowed = !!spec.idOf(pro) && !isLimit(pro, spec.quota)
+    if (!v.proAllowed)
+      v.notes.push(`PRO not allowed — server still blocked ${spec.op} after seeding pro: ${JSON.stringify(pro).slice(0, 160)}`)
+
+    v.pass = v.freeRejected === true && v.proAllowed === true
+  } catch (e) {
+    if (e.message !== 'setup-failed') v.notes.push(`error: ${e.message}`)
+  } finally {
+    await clearSub(email)
+    if (provisioned) await client.deleteUser(email).catch(() => {})
+  }
+  return v
+}
+
 async function verifyGate(spec) {
   const v = { gate: spec.gate, op: spec.op, freeRejected: null, proAllowed: null, pass: false, notes: [] }
   const email = `e2e+verify-${spec.gate}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@e2e.buckden.io`
@@ -134,6 +197,7 @@ const mark = (ok) => (ok === true ? `${C.grn}✅ yes${C.x}` : ok === false ? `${
   console.log(`  ${C.dim}out-of-band server probe — does NOT trust the kit's attemptFeature${C.x}\n`)
   const results = []
   for (const spec of GATES) results.push(await verifyGate(spec))
+  for (const spec of QUOTAS) results.push(await verifyQuota(spec))
 
   let concerns = 0
   for (const v of results) {

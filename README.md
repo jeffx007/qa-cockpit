@@ -132,11 +132,18 @@ export (exportItems)
 ```
 
 It exits non-zero on a **concern** (e.g. a FREE user *not* rejected = a real entitlement
-bypass the kit's UI-only test would miss). It covers all three hopo feature gates —
-`export` (`exportItems`), `sharing` (`createInvite`), `reminders` (`createAnnualItem`) —
-each proven live: FREE rejected + PRO allowed. Add a gate by appending one entry to the
-`GATES` list in the script. It seeds PRO via the credential-less PR #334 endpoint, so it
-needs no AWS.
+bypass the kit's UI-only test would miss). It covers, each proven live (FREE rejected +
+PRO allowed):
+
+- **Feature gates** (`GATES`) — `export` (`exportItems`), `sharing` (`createInvite`),
+  `reminders` (`createAnnualItem`). These close the kit's UI-only false-negative.
+- **Quota gates** (`QUOTAS`) — `maxDwellings` (FREE=1): fill to the limit, the next
+  create must be rejected; PRO raises it. Independent corroboration of the kit's boundary
+  suite (which already tests quotas server-side). `maxItems`(50)/`maxImages` are
+  extensible entries, left un-exercised because they'd need 50+ creates per run.
+
+Add a gate/quota by appending one entry to the `GATES`/`QUOTAS` list. It seeds PRO via the
+credential-less PR #334 endpoint, so it needs no AWS.
 
 ## Setup (one-time)
 ```bash
