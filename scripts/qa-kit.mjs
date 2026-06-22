@@ -33,9 +33,10 @@ mkdirSync(resultsDir, { recursive: true })
 const logPath = resolve(resultsDir, 'last-run.log')
 
 const grepArg = GREP ? `--grep ${JSON.stringify(GREP)}` : ''
-const cmd = `npm run env -- playwright test --config ${CONFIG} --project=${PROJECT} --workers=${WORKERS} ${grepArg} --reporter=list`
+const headedArg = process.env.HEADED ? '--headed' : '' // visible browser (watch it run)
+const cmd = `npm run env -- playwright test --config ${CONFIG} --project=${PROJECT} --workers=${WORKERS} ${grepArg} ${headedArg} --reporter=list`
 
-console.log(`▶ ${VENTURE} kit · project=${PROJECT} workers=${WORKERS}${GREP ? ` grep=${GREP}` : ''} · ${E2E_BASE_URL}`)
+console.log(`▶ ${VENTURE} kit · project=${PROJECT} workers=${WORKERS}${GREP ? ` grep=${GREP}` : ''}${headedArg ? ' headed' : ''} · ${E2E_BASE_URL}`)
 console.log(`  ${ventureDir}\n  $ ${cmd}\n`)
 
 const out = createWriteStream(logPath)

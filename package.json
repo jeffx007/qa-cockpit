@@ -19,6 +19,7 @@
     "hopo:setup": "VENTURE=vb-hopo npm run setup",
     "hopo:test": "VENTURE=vb-hopo npm run test",
     "hopo:smoke": "VENTURE=vb-hopo GREP=@smoke npm run test",
+    "hopo:watch": "VENTURE=vb-hopo GREP=@smoke WORKERS=1 HEADED=1 npm run test",
     "verify": "COCKPIT=\"$PWD\"; cd ../ventures/${VENTURE:-vb-hopo} && E2E_BASE_URL=${E2E_BASE_URL:-https://dev.hopo.io} npm run env -- node \"$COCKPIT/scripts/verify-entitlements.mjs\"",
     "hopo:verify": "VENTURE=vb-hopo npm run verify",
     "qa:superadmin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role superadmin --api",
