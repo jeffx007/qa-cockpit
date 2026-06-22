@@ -137,10 +137,17 @@ PRO allowed):
 
 - **Feature gates** (`GATES`) — `export` (`exportItems`), `sharing` (`createInvite`),
   `reminders` (`createAnnualItem`). These close the kit's UI-only false-negative.
-- **Quota gates** (`QUOTAS`) — `maxDwellings` (FREE=1): fill to the limit, the next
-  create must be rejected; PRO raises it. Independent corroboration of the kit's boundary
-  suite (which already tests quotas server-side). `maxItems`(50)/`maxImages` are
-  extensible entries, left un-exercised because they'd need 50+ creates per run.
+- **Quota gates** (`QUOTAS`) — `maxDwellings` (FREE=1) runs by default; `maxItems` (FREE=50)
+  is wired but **opt-in** via `HEAVY=1` (it needs 51 creates). `maxImages` (total 50) is
+  left out — images upload via S3 presign, not GraphQL.
+- **Image limit probe** — `maxImagesPerItem`: a FREE user creating a 3-image item *should*
+  be rejected (free=1). **It is not** — the server has no enforcement (confirmed live), so
+  this reports a **CONCERN**: a genuine server-side gap the kit never tests. Tracked in
+  `false-negatives.json` to raise as a vb-hopo issue.
+
+```bash
+HEAVY=1 npm run hopo:verify   # also exercise maxItems (51 item creates)
+```
 
 Add a gate/quota by appending one entry to the `GATES`/`QUOTAS` list. It seeds PRO via the
 credential-less PR #334 endpoint, so it needs no AWS.

@@ -20,6 +20,15 @@
       "blindSpot": "Routes without a settled testId assert only errorBoundary==0 && notFound==0. A blank / wrong / infinite-spinner view passes for any un-mapped route (only home, settings, annual-items are mapped).",
       "verify": "Per route, assert a content marker unique to that view (requires a testId per route).",
       "track": "raise vb-hopo issue"
+    },
+    {
+      "id": "image-limits-not-enforced",
+      "severity": "high",
+      "owner": "venture/server (no resolver or upload-handler enforcement)",
+      "claim": "Tier defines maxImagesPerItem (free=1, pro=3) and maxImages (free=50) — implies image counts are capped per tier",
+      "blindSpot": "grep finds these limits DEFINED in entitlements.ts + exposed in schema, but read NOWHERE for enforcement. The kit has no test for them either. CONFIRMED live by the verifier: a FREE user created an item with 3 images (image/image2/image3) and the server accepted it.",
+      "verify": "cockpit `npm run hopo:verify` — the maxImagesPerItem probe (FREE creates a 3-image item; expects rejection). Currently reports CONCERN = unenforced.",
+      "track": "raise vb-hopo issue (real server-side enforcement gap, not just a test gap)"
     }
   ]
 }
