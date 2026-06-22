@@ -132,9 +132,11 @@ export (exportItems)
 ```
 
 It exits non-zero on a **concern** (e.g. a FREE user *not* rejected = a real entitlement
-bypass the kit's UI-only test would miss). Today it covers the `export` gate; `sharing`
-(`createInvite`) and `reminders` are one-entry additions to the `GATES` list in the
-script. It seeds PRO via the credential-less PR #334 endpoint, so it needs no AWS.
+bypass the kit's UI-only test would miss). It covers all three hopo feature gates —
+`export` (`exportItems`), `sharing` (`createInvite`), `reminders` (`createAnnualItem`) —
+each proven live: FREE rejected + PRO allowed. Add a gate by appending one entry to the
+`GATES` list in the script. It seeds PRO via the credential-less PR #334 endpoint, so it
+needs no AWS.
 
 ## Setup (one-time)
 ```bash

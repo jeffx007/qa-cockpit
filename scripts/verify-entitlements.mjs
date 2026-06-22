@@ -56,13 +56,31 @@ const isLimit = (json, gate) =>
 
 const CREATE_DWELLING = `mutation($input: CreateDwellingInput!){ createDwelling(input:$input){ id } }`
 
-// Declarative gate specs. setup() returns { idToken, groupId }; probe is the gated op.
+// Declarative gate specs. needsGroup → create a dwelling first and send X-Group-Id.
+// buildVars() (optional) produces the probe variables once per run (same for FREE+PRO).
 const GATES = [
   {
     gate: 'export',
     op: 'exportItems',
     probe: `query { exportItems { dwellingName } }`,
     needsGroup: true,
+  },
+  {
+    gate: 'sharing',
+    op: 'createInvite',
+    probe: `mutation($email: String!, $role: GroupRole!){ createInvite(email: $email, role: $role){ inviteId } }`,
+    needsGroup: true,
+    buildVars: () => ({
+      email: `invitee+${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@e2e.buckden.io`,
+      role: 'viewer',
+    }),
+  },
+  {
+    gate: 'reminders',
+    op: 'createAnnualItem',
+    probe: `mutation($input: CreateAnnualItemInput!){ createAnnualItem(input: $input){ id } }`,
+    needsGroup: false,
+    buildVars: () => ({ input: { name: 'Verify Reminder', type: 'CAR_INSURANCE' } }),
   },
 ]
 
@@ -83,15 +101,17 @@ async function verifyGate(spec) {
       if (!groupId) throw new Error(`createDwelling failed: ${JSON.stringify(d.errors || d).slice(0, 200)}`)
     }
 
+    const vars = spec.buildVars ? spec.buildVars() : {}
+
     // FREE → must be rejected server-side
-    const freeRes = await gql(spec.probe, {}, { idToken, groupId })
+    const freeRes = await gql(spec.probe, vars, { idToken, groupId })
     v.freeRejected = isLimit(freeRes, spec.gate)
     if (!v.freeRejected)
       v.notes.push(`FREE not rejected — server allowed ${spec.op} to a free user: ${JSON.stringify(freeRes).slice(0, 180)}`)
 
     // PRO → must be allowed
     await seedSub(email, 'pro')
-    const proRes = await gql(spec.probe, {}, { idToken, groupId })
+    const proRes = await gql(spec.probe, vars, { idToken, groupId })
     v.proAllowed = !isLimit(proRes, spec.gate) && !proRes.errors
     if (!v.proAllowed)
       v.notes.push(`PRO not allowed — server still blocked ${spec.op} after seeding pro: ${JSON.stringify(proRes).slice(0, 180)}`)
