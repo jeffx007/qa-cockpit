@@ -18,6 +18,10 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const KNOWN = JSON.parse(readFileSync(resolve(__dirname, '../known-issues.json'), 'utf8'))
+// Watchlist of KIT/venture-side blind spots the cockpit can't fix but must surface
+// so a "0 failures" verdict is never mistaken for "everything is verified".
+const FN_PATH = resolve(__dirname, '../false-negatives.json')
+const FN = existsSync(FN_PATH) ? JSON.parse(readFileSync(FN_PATH, 'utf8')) : {}
 
 const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '')
 
@@ -109,7 +113,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const fp = failures.length - real.length
   console.log(
     `\n  ${C.b}Verdict:${C.x} ${fp}/${failures.length} failure(s) are known false-positives; ` +
-      `${real.length ? C.red : C.grn}${real.length} need review.${C.x}\n`
+      `${real.length ? C.red : C.grn}${real.length} need review.${C.x}`
   )
+
+  // ── False-negative watchlist: blind spots that pass but aren't really verified ──
+  const caveats = [...(FN.global || []), ...(FN[venture] || [])]
+  if (caveats.length) {
+    console.log(
+      `\n  ${C.ylw}⚠ Trust caveats — ${caveats.length} area(s) NOT actually verified (false-negative risk):${C.x}`
+    )
+    for (const c of caveats) {
+      console.log(`     ${C.b}${c.id}${C.x} ${C.dim}(${c.severity}, ${c.owner})${C.x}`)
+      console.log(`        ${C.dim}claim: ${c.claim}${C.x}`)
+      console.log(`        ${C.dim}blind: ${c.blindSpot}${C.x}`)
+    }
+    console.log(
+      `     ${C.dim}→ a green result here proves nothing for these; fix in the owner repo (tracked) or run the independent verifier.${C.x}`
+    )
+  }
+  console.log('')
   process.exit(real.length > 0 ? 1 : 0)
 }

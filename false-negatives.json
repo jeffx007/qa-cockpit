@@ -1,0 +1,24 @@
+{
+  "_comment": "WATCHLIST of weak/blind assertions — places a test can stay GREEN while a real bug exists (false negatives). The cockpit cannot fix these (they live in the KIT or the venture adapters, which we don't touch), so it CAPTURES them here and triage surfaces them on EVERY run. The point: a '0 real failures' verdict must never read as 'all good' — these areas aren't actually verified. Each should be tracked as an issue in the owning repo. 'verify' = how the cockpit's independent verifier could confirm it out-of-band (not trusting the kit/adapter).",
+  "global": [],
+  "vb-hopo": [
+    {
+      "id": "entitlement-server-not-probed",
+      "severity": "high",
+      "owner": "venture (e2e-kit/config.ts → attemptFeature)",
+      "claim": "SUBSCRIPTION 'FREE blocks <gate> (UI + server)' — title/assertion claim server-side rejection",
+      "blindSpot": "attemptFeature returns serverRejected = uiBlocked (the UI state); the server is never called. A server-side entitlement bypass passes as long as the UI still hides the control.",
+      "verify": "Provision a FREE user, POST the gated mutation (export/sharing/reminders) via GraphQL as that user, assert the SERVER rejects it — independent of the UI.",
+      "track": "raise vb-hopo issue"
+    },
+    {
+      "id": "nav-route-content-unverified",
+      "severity": "medium",
+      "owner": "kit (navigation suite) + venture (testId map)",
+      "claim": "NAVIGATION '/X loads' — implies the route renders its view",
+      "blindSpot": "Routes without a settled testId assert only errorBoundary==0 && notFound==0. A blank / wrong / infinite-spinner view passes for any un-mapped route (only home, settings, annual-items are mapped).",
+      "verify": "Per route, assert a content marker unique to that view (requires a testId per route).",
+      "track": "raise vb-hopo issue"
+    }
+  ]
+}

@@ -96,6 +96,26 @@ CI-usable. The known false-positive patterns live in **`known-issues.json`** —
 test bugs there should each be tracked as an issue in that venture's repo, and removed
 from the file once fixed (so the failure starts counting as real again).
 
+#### False-negatives (passes that prove nothing)
+
+Triage also handles the *other* accuracy risk: a test that stays **green while a bug
+exists**, because the assertion is weak or the venture adapter fakes it (e.g. a
+"server-side" entitlement check that only reads the UI). The cockpit can't fix these —
+they live in the **KIT or the venture adapters**, which we don't touch — so it **captures**
+them in **`false-negatives.json`** and surfaces them on *every* run:
+
+```
+Verdict: 27/27 failure(s) are known false-positives; 0 need review.
+⚠ Trust caveats — 2 area(s) NOT actually verified (false-negative risk):
+   entitlement-server-not-probed (high, venture e2e-kit/config.ts → attemptFeature)
+   nav-route-content-unverified (medium, kit navigation suite + venture testId map)
+```
+
+So a `0 failures` result is never mistaken for "everything verified". Each entry should
+be raised as an issue in the owning repo; the cockpit's planned **independent verifier**
+will re-check the highest-risk ones (e.g. POST the gated mutation as a FREE user and
+assert the *server* rejects it) out-of-band, without trusting the kit's adapter.
+
 ## Setup (one-time)
 ```bash
 npm install
