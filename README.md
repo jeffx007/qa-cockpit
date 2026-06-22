@@ -112,9 +112,29 @@ Verdict: 27/27 failure(s) are known false-positives; 0 need review.
 ```
 
 So a `0 failures` result is never mistaken for "everything verified". Each entry should
-be raised as an issue in the owning repo; the cockpit's planned **independent verifier**
-will re-check the highest-risk ones (e.g. POST the gated mutation as a FREE user and
-assert the *server* rejects it) out-of-band, without trusting the kit's adapter.
+be raised as an issue in the owning repo.
+
+#### Independent verifier (active false-negative guard)
+
+For the highest-risk blind spot — server-side entitlement enforcement — the cockpit
+*actively* re-checks it instead of trusting the kit. `scripts/verify-entitlements.mjs`
+provisions a real FREE user, creates the group context, and **calls the gated GraphQL
+operation itself**:
+
+```bash
+npm run hopo:verify      # FREE must be rejected (LIMIT_EXCEEDED) + PRO must be allowed
+```
+```
+export (exportItems)
+   FREE rejected by server : ✅ yes
+   PRO  allowed  by server : ✅ yes
+   → ENFORCED — server gate proven (kit's UI-only check now backed by a real probe)
+```
+
+It exits non-zero on a **concern** (e.g. a FREE user *not* rejected = a real entitlement
+bypass the kit's UI-only test would miss). Today it covers the `export` gate; `sharing`
+(`createInvite`) and `reminders` are one-entry additions to the `GATES` list in the
+script. It seeds PRO via the credential-less PR #334 endpoint, so it needs no AWS.
 
 ## Setup (one-time)
 ```bash

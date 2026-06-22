@@ -9,6 +9,7 @@
       "claim": "SUBSCRIPTION 'FREE blocks <gate> (UI + server)' — title/assertion claim server-side rejection",
       "blindSpot": "attemptFeature returns serverRejected = uiBlocked (the UI state); the server is never called. A server-side entitlement bypass passes as long as the UI still hides the control.",
       "verify": "Provision a FREE user, POST the gated mutation (export/sharing/reminders) via GraphQL as that user, assert the SERVER rejects it — independent of the UI.",
+      "mitigatedBy": "cockpit `npm run hopo:verify` (scripts/verify-entitlements.mjs) — covers `export` today (FREE rejected + PRO allowed, proven live); `sharing` (createInvite) and `reminders` are extensible additions to its GATES list.",
       "track": "raise vb-hopo issue"
     },
     {

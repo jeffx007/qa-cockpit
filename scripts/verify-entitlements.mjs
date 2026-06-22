@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+// =============================================================================
+// verify-entitlements — independent, out-of-band proof that the SERVER enforces
+//                       entitlement gates (closes the false-negative where the
+//                       kit's attemptFeature only checks the UI).
+// =============================================================================
+// Does NOT trust the kit or the venture adapter. It provisions a real user,
+// creates the group context, and calls the gated GraphQL operation ITSELF:
+//   FREE  → the server must REJECT  (LIMIT_EXCEEDED / limit=<gate>)
+//   PRO   → the server must ALLOW   (after seeding pro via the PR #334 endpoint)
+// A "FREE not rejected" is a real entitlement bypass the kit's UI-only test misses.
+//
+// Run via `npm run hopo:verify` (loads the venture's decrypted env: keys, client id).
+
+import { E2EApiClient, generateEphemeralPassword } from '@buckden/auth-client/testing'
+
+const API = (process.env.VB_ACCOUNT_E2E_URL || process.env.AUTH_URL || process.env.API_URL || '').replace(/\/$/, '')
+const API_KEY = process.env.E2E_API_KEY
+const CLIENT_ID =
+  process.env.E2E_CLIENT_ID || process.env.VITE_AUTH_CLIENT_ID || process.env.E2E_SUB_CLIENT_ID || 'hopo-web'
+const GRAPHQL =
+  process.env.GRAPHQL_URL || `${(process.env.E2E_BASE_URL || 'https://dev.hopo.io').replace(/\/$/, '')}/graphql`
+
+if (!API || !API_KEY) {
+  console.error('verify: missing E2E_API_KEY + AUTH_URL — run via `npm run hopo:verify` so dotenvx loads them.')
+  process.exit(2)
+}
+
+const client = new E2EApiClient({ baseUrl: API, apiKey: API_KEY, clientId: CLIENT_ID })
+
+async function gql(query, variables, { idToken, groupId } = {}) {
+  const headers = { 'content-type': 'application/json' }
+  if (idToken) headers['authorization'] = `Bearer ${idToken}`
+  if (groupId) headers['x-group-id'] = groupId
+  const res = await fetch(GRAPHQL, { method: 'POST', headers, body: JSON.stringify({ query, variables }) })
+  return res.json().catch(() => ({}))
+}
+async function seedSub(email, plan) {
+  const url = `${API}/e2e/users/${encodeURIComponent(email)}/subscription?client_id=${encodeURIComponent(CLIENT_ID)}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'x-e2e-key': API_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify({ plan }),
+  })
+  if (!res.ok) throw new Error(`seed ${plan} failed: ${res.status} ${(await res.text()).slice(0, 160)}`)
+}
+async function clearSub(email) {
+  const url = `${API}/e2e/users/${encodeURIComponent(email)}/subscription?client_id=${encodeURIComponent(CLIENT_ID)}`
+  await fetch(url, { method: 'DELETE', headers: { 'x-e2e-key': API_KEY } }).catch(() => {})
+}
+
+const isLimit = (json, gate) =>
+  (json?.errors || []).some(
+    (e) => e.extensions?.code === 'LIMIT_EXCEEDED' && (e.extensions?.limit === gate || e.extensions?.limitName === gate)
+  )
+
+const CREATE_DWELLING = `mutation($input: CreateDwellingInput!){ createDwelling(input:$input){ id } }`
+
+// Declarative gate specs. setup() returns { idToken, groupId }; probe is the gated op.
+const GATES = [
+  {
+    gate: 'export',
+    op: 'exportItems',
+    probe: `query { exportItems { dwellingName } }`,
+    needsGroup: true,
+  },
+]
+
+async function verifyGate(spec) {
+  const v = { gate: spec.gate, op: spec.op, freeRejected: null, proAllowed: null, pass: false, notes: [] }
+  const email = `e2e+verify-${spec.gate}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@e2e.buckden.io`
+  const password = generateEphemeralPassword()
+  let provisioned = false
+  try {
+    await client.createUser({ email, password })
+    provisioned = true
+    const { idToken } = await client.getAuthToken({ email, password })
+
+    let groupId
+    if (spec.needsGroup) {
+      const d = await gql(CREATE_DWELLING, { input: { name: 'Verify House', type: 'HOUSE' } }, { idToken })
+      groupId = d?.data?.createDwelling?.id
+      if (!groupId) throw new Error(`createDwelling failed: ${JSON.stringify(d.errors || d).slice(0, 200)}`)
+    }
+
+    // FREE → must be rejected server-side
+    const freeRes = await gql(spec.probe, {}, { idToken, groupId })
+    v.freeRejected = isLimit(freeRes, spec.gate)
+    if (!v.freeRejected)
+      v.notes.push(`FREE not rejected — server allowed ${spec.op} to a free user: ${JSON.stringify(freeRes).slice(0, 180)}`)
+
+    // PRO → must be allowed
+    await seedSub(email, 'pro')
+    const proRes = await gql(spec.probe, {}, { idToken, groupId })
+    v.proAllowed = !isLimit(proRes, spec.gate) && !proRes.errors
+    if (!v.proAllowed)
+      v.notes.push(`PRO not allowed — server still blocked ${spec.op} after seeding pro: ${JSON.stringify(proRes).slice(0, 180)}`)
+
+    v.pass = v.freeRejected === true && v.proAllowed === true
+  } catch (e) {
+    v.notes.push(`error: ${e.message}`)
+  } finally {
+    await clearSub(email)
+    if (provisioned) await client.deleteUser(email).catch(() => {})
+  }
+  return v
+}
+
+const C = { dim: '\x1b[2m', red: '\x1b[31m', grn: '\x1b[32m', ylw: '\x1b[33m', x: '\x1b[0m', b: '\x1b[1m' }
+const mark = (ok) => (ok === true ? `${C.grn}✅ yes${C.x}` : ok === false ? `${C.red}❌ NO${C.x}` : `${C.ylw}— ?${C.x}`)
+
+;(async () => {
+  console.log(`\n${C.b}Independent Entitlement Verifier${C.x} ${C.dim}— ${GRAPHQL} (client ${CLIENT_ID})${C.x}`)
+  console.log(`  ${C.dim}out-of-band server probe — does NOT trust the kit's attemptFeature${C.x}\n`)
+  const results = []
+  for (const spec of GATES) results.push(await verifyGate(spec))
+
+  let concerns = 0
+  for (const v of results) {
+    const enforced = v.pass
+    console.log(`  ${C.b}${v.gate}${C.x} ${C.dim}(${v.op})${C.x}`)
+    console.log(`     FREE rejected by server : ${mark(v.freeRejected)}`)
+    console.log(`     PRO  allowed  by server : ${mark(v.proAllowed)}`)
+    if (enforced) {
+      console.log(`     → ${C.grn}ENFORCED${C.x} ${C.dim}— server gate proven (kit's UI-only check now backed by a real probe)${C.x}`)
+    } else {
+      concerns++
+      console.log(`     → ${C.red}CONCERN${C.x}`)
+      for (const n of v.notes) console.log(`        ${C.dim}${n}${C.x}`)
+    }
+  }
+  console.log(
+    `\n  ${C.b}Verdict:${C.x} ${results.length - concerns}/${results.length} gate(s) enforced server-side; ` +
+      `${concerns ? C.red : C.grn}${concerns} concern(s).${C.x}\n`
+  )
+  process.exit(concerns > 0 ? 1 : 0)
+})()
