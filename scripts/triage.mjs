@@ -68,6 +68,27 @@ export function classify(rawText, venture = 'vb-hopo') {
   return { totals, failures }
 }
 
+/** Per-category (suite) pass/fail/skip from the list-reporter result lines. */
+export function resultsByCategory(rawText) {
+  const text = stripAnsi(rawText)
+  const cats = new Map()
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*([✓✘\-])\s+\d+\s+\[([^\]]+)\]\s+›\s+(.+)$/)
+    if (!m) continue
+    const [, mark, , rest] = m
+    const parts = rest.split(' › ')
+    if (parts.length < 3) continue // path › category › test
+    const category = parts[1].trim()
+    const test = parts.slice(2).join(' › ').replace(/\s*\([\d.]+m?s\)\s*$/, '').trim()
+    const c = cats.get(category) || { pass: 0, fail: 0, skip: 0, failures: [] }
+    if (mark === '✓') c.pass += 1
+    else if (mark === '✘') (c.fail += 1), c.failures.push(test)
+    else c.skip += 1
+    cats.set(category, c)
+  }
+  return cats
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2)
@@ -82,7 +103,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(2)
   }
 
-  const { totals, failures } = classify(readFileSync(file, 'utf8'), venture)
+  const raw = readFileSync(file, 'utf8')
+  const { totals, failures } = classify(raw, venture)
+  const cats = resultsByCategory(raw)
 
   const groups = {}
   const real = []
@@ -97,7 +120,27 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const C = { dim: '\x1b[2m', red: '\x1b[31m', grn: '\x1b[32m', ylw: '\x1b[33m', x: '\x1b[0m', b: '\x1b[1m' }
   console.log(`\n${C.b}QA Accuracy Triage${C.x} ${C.dim}— ${file} (venture: ${venture})${C.x}`)
   console.log(`  Run: ${C.grn}${totals.passed} passed${C.x} · ${totals.failed} failed · ${totals.skipped} skipped`)
-  console.log(`  ${C.b}Classified ${failures.length} failure(s):${C.x}\n`)
+
+  // ── Results by category (suite) ──
+  if (cats.size) {
+    const rows = [...cats.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    const w = Math.max(22, ...rows.map(([k]) => k.length))
+    let tp = 0, tf = 0, ts = 0
+    console.log(`\n  ${C.b}Results by category${C.x} ${C.dim}(project: desktop)${C.x}`)
+    console.log(`  ${'Category'.padEnd(w)}  Pass  Fail  Skip`)
+    console.log(`  ${'─'.repeat(w + 18)}`)
+    for (const [cat, c] of rows) {
+      tp += c.pass; tf += c.fail; ts += c.skip
+      const fail = c.fail ? `${C.red}${String(c.fail).padStart(4)}${C.x}` : String(c.fail).padStart(4)
+      const name = c.fail ? `${C.b}${cat.padEnd(w)}${C.x}` : cat.padEnd(w)
+      console.log(`  ${name}  ${C.grn}${String(c.pass).padStart(4)}${C.x}  ${fail}  ${String(c.skip).padStart(4)}`)
+      for (const f of c.failures) console.log(`  ${C.dim}${' '.repeat(w)}    ↳ ✘ ${f}${C.x}`)
+    }
+    console.log(`  ${'─'.repeat(w + 18)}`)
+    console.log(`  ${C.b}${'TOTAL'.padEnd(w)}${C.x}  ${C.grn}${String(tp).padStart(4)}${C.x}  ${tf ? C.red : ''}${String(tf).padStart(4)}${C.x}  ${String(ts).padStart(4)}`)
+  }
+
+  console.log(`\n  ${C.b}Classified ${failures.length} failure(s):${C.x}\n`)
 
   for (const [id, g] of Object.entries(groups)) {
     console.log(`  ${C.ylw}❌ false-positive${C.x} · ${C.b}${id}${C.x} — ${g.n}`)
