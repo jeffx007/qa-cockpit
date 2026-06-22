@@ -36,11 +36,20 @@ its encrypted `.env` via dotenvx + macOS Keychain); the cockpit only forwards `V
 | `npm run report` | the venture's `qa:report` |
 | `npm run hopo:drive` | `VENTURE=vb-hopo npm run drive` (shortcut) |
 | `npm run hopo:ui` | `VENTURE=vb-hopo npm run ui` (shortcut) |
+| `npm run hopo:sync` | `cd ../ventures/vb-hopo && npm install` (resync the venture's deps) |
+
+The kit suite that `qa:ui` runs (from `@buckden/e2e`, config-driven per venture) currently covers:
+**session · navigation · rbac · subscription · boundary · accessibility · isolation**.
+
+> **Run `npm run hopo:sync` (i.e. `npm install` inside the venture) after pulling vb-hopo**
+> before `hopo:ui` / `hopo:drive`. The harness imports `@buckden/e2e` from the venture's
+> `node_modules`; dependency drift breaks that import resolution.
 
 ```bash
+npm run hopo:sync                         # npm install inside vb-hopo (run after a pull)
 ROLE=viewer npm run hopo:drive            # paused live viewer session in vb-hopo
 VENTURE=vb-hopo ROLE=admin npm run drive  # generic form, any venture
-npm run hopo:ui                           # Playwright UI Mode (full kit suite)
+npm run hopo:ui                           # Playwright UI Mode (full kit suite, incl. a11y + isolation)
 E2E_BASE_URL=https://dev.hopo.io npm run codegen
 npm run report
 ```
@@ -78,6 +87,6 @@ npm run test:manual:watch # ...headed
 - **Hopo-specific**: routes, selectors, and entity flows (dwelling→room→item) are Hopo's. Other ventures would need their own.
 
 ## Status / relationship to `@buckden/e2e`
-The official **`@buckden/e2e` kit** (in `../e2e/`, RFC 0002) now provides config-driven, cross-venture **navigation / rbac / subscription / session / boundary** suites via `runKit`. It **supersedes the runbook specs** here. The genuinely unique, still-useful piece is the **`qa:*` on-demand human-login tooling**, which the automated kit does not replace.
+The official **`@buckden/e2e` kit** (in `../e2e/`, RFC 0002) now provides config-driven, cross-venture **session / navigation / rbac / subscription / boundary / accessibility / isolation** suites via `runKit`. It **supersedes the runbook specs** here. The genuinely unique, still-useful piece is the **`qa:*` on-demand human-login tooling**, which the automated kit does not replace.
 
 Extracted from `vb-hopo` branch `test/manual-runbook-rbac-tier` (PR #235).

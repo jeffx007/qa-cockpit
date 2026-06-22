@@ -12,6 +12,7 @@
     "report": "cd ../ventures/${VENTURE:-vb-hopo} && npm run qa:report",
     "hopo:drive": "VENTURE=vb-hopo npm run drive",
     "hopo:ui": "VENTURE=vb-hopo npm run ui",
+    "hopo:sync": "cd ../ventures/vb-hopo && npm install",
     "qa:superadmin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role superadmin --api",
     "qa:owner": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role owner --api",
     "qa:admin": "APP_URL=https://dev.hopo.io npm run env -- node scripts/qa-manual-user.mjs --role admin --api",
